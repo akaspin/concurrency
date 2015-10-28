@@ -26,7 +26,7 @@ type Locks struct {
 	cancel context.CancelFunc
 }
 
-func NewLocks(ctx context.Context, n int, ttl time.Duration) (res Locks) {
+func NewLocks(ctx context.Context, n int, ttl time.Duration) (res *Locks) {
 	res = &Locks{}
 	res.ctx, res.cancel = context.WithCancel(ctx)
 	res.pool = pools.NewResourcePool(res.factory, n, n, ttl)
