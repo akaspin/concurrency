@@ -52,6 +52,10 @@ func (p *Locks) With(fn func() error) (err error) {
 	return
 }
 
+func (p *Locks) Available() int64 {
+	return p.pool.Available()
+}
+
 func (p *Locks) Close() (err error) {
 	p.cancel()
 	p.pool.Close()
@@ -59,5 +63,6 @@ func (p *Locks) Close() (err error) {
 }
 
 func (p *Locks) factory() (res pools.Resource, err error) {
+	res = &Lock{p.pool}
 	return
 }
