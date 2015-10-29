@@ -19,7 +19,8 @@ func (l *Lock) Close() (err error) {
 	return
 }
 
-
+// Locks is simple pool for track limited
+// resources such a FD.
 type Locks struct {
 	pool *pools.ResourcePool
 	ctx context.Context
