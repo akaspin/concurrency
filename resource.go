@@ -36,7 +36,7 @@ type ResourcePoolConfig struct {
 type ResourcePool struct {
 	*supervisor.Control
 	resourcesCh chan resourceWrapper
-	config *ResourcePoolConfig
+	config ResourcePoolConfig
 }
 
 func NewResourcePool(
@@ -46,6 +46,35 @@ func NewResourcePool(
 		Control: supervisor.NewControl(ctx),
 		resourcesCh: make(chan resourceWrapper, config.Capacity),
 		config: config,
+	}
+	return
+}
+
+func (p *ResourcePool) Open() (err error) {
+	if err = p.Control.Open(); err != nil {
+		return
+	}
+	for i := 0; i < p.config.Capacity; i++ {
+		p.resourcesCh<- resourceWrapper{}
+	}
+	return
+}
+
+func (p *ResourcePool) Close() (err error) {
+	p.Acquire()
+	defer p.Release()
+	p.Control.Close()
+
+	LOOP:
+	for {
+		select {
+		case r := <-p.resourcesCh:
+			if r.resource != nil {
+				r.resource.Close()
+			}
+		default:
+			break LOOP
+		}
 	}
 	return
 }
@@ -93,6 +122,16 @@ func (p *ResourcePool) Get(ctx context.Context) (r Resource, err error) {
 }
 
 func (p *ResourcePool) Put(r Resource) (err error) {
+	select {
+	case <-p.Control.Ctx().Done():
+		if r != nil {
+			r.Close()
+		}
+		p.Release()
+		return
+	default:
+	}
+
 	var wrapper resourceWrapper
 	if r != nil {
 		wrapper = resourceWrapper{
@@ -105,14 +144,6 @@ func (p *ResourcePool) Put(r Resource) (err error) {
 		p.Release()
 	default:
 		err = PoolIsFullError
-	}
-	return
-}
-
-func (p *ResourcePool) Open() (err error) {
-	p.Control.Open()
-	for i := 0; i < p.config.Capacity; i++ {
-		p.resourcesCh<- resourceWrapper{}
 	}
 	return
 }
