@@ -25,7 +25,7 @@ func newWorker(control *supervisor.Control) (w *Worker) {
 }
 
 func (w *Worker) Open() (err error) {
-	w.Open()
+	w.Control.Open()
 	go w.loop()
 	return
 }
@@ -82,7 +82,6 @@ type WorkerPoolConfig struct {
 	Capacity int
 	IdleTimeout time.Duration
 	CloseTimeout time.Duration
-	JobTimeout time.Duration
 }
 
 // WorkerPool uses pool of workers to execute tasks
@@ -127,7 +126,7 @@ func (p *WorkerPool) Get(ctx context.Context) (w *Worker, err error) {
 }
 
 func (p *WorkerPool) factory() (r Resource, err error) {
-	w := newWorker(supervisor.NewControlTimeout(p.Control.Ctx(), p.config.JobTimeout))
+	w := newWorker(supervisor.NewControlTimeout(p.Control.Ctx(), p.config.CloseTimeout))
 	err = w.Open()
 	if err != nil {
 		return

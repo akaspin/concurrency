@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"github.com/stretchr/testify/assert"
 	"time"
+	"sync"
 )
 
 type nopCloser struct {
@@ -35,21 +36,27 @@ func TestNewResourcePool(t *testing.T) {
 	})
 	p.Open()
 
+	wg := &sync.WaitGroup{}
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r, err := p.Get(context.TODO())
+			assert.NoError(t, err)
+			defer p.Put(r)
+		}()
+	}
 
-	r, err := p.Get(context.TODO())
-	assert.NoError(t, err)
+	wg.Wait()
 
-	err = p.Put(r)
-	assert.NoError(t, err)
-
-	assert.Equal(t, factoryCount, int64(1))
+	assert.Equal(t, factoryCount, int64(16))
 	assert.Equal(t, closeCount, int64(0))
 
 	p.Close()
-	err = p.Wait()
-	
+	err := p.Wait()
+
 	assert.NoError(t, err)
-	assert.Equal(t, factoryCount, int64(1))
-	assert.Equal(t, closeCount, int64(1))
+	assert.Equal(t, factoryCount, int64(16))
+	assert.Equal(t, closeCount, int64(16))
 
 }
