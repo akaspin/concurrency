@@ -18,7 +18,7 @@ func TestNewWorkerPool(t *testing.T) {
 		atomic.AddInt64(&count, 1)
 	}
 
-	p := concurrency.NewWorkerPool(context.TODO(), concurrency.WorkerPoolConfig{
+	p := concurrency.NewWorkerPool(context.TODO(), concurrency.Config{
 		CloseTimeout: time.Millisecond * 200,
 		Capacity: 16,
 	})

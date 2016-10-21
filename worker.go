@@ -3,7 +3,6 @@ package concurrency
 import (
 	"context"
 	"github.com/akaspin/supervisor"
-	"time"
 )
 
 type jobRequest struct {
@@ -78,28 +77,17 @@ func (w *Worker) run(job jobRequest) {
 	}
 }
 
-type WorkerPoolConfig struct {
-	Capacity int
-	IdleTimeout time.Duration
-	CloseTimeout time.Duration
-}
-
 // WorkerPool uses pool of workers to execute tasks
 type WorkerPool struct {
 	*ResourcePool
-	config WorkerPoolConfig
+	config Config
 }
 
-func NewWorkerPool(ctx context.Context, config WorkerPoolConfig) (p *WorkerPool) {
+func NewWorkerPool(ctx context.Context, config Config) (p *WorkerPool) {
 	p = &WorkerPool{
 		config: config,
 	}
-	p.ResourcePool = NewResourcePool(ctx, ResourcePoolConfig{
-		Capacity: config.Capacity,
-		IdleTimeout: config.IdleTimeout,
-		CloseTimeout: config.CloseTimeout,
-		Factory: p.factory,
-	})
+	p.ResourcePool = NewResourcePool(ctx, config, p.factory)
 	return
 }
 
@@ -126,7 +114,7 @@ func (p *WorkerPool) Get(ctx context.Context) (w *Worker, err error) {
 }
 
 func (p *WorkerPool) factory() (r Resource, err error) {
-	w := newWorker(supervisor.NewControlTimeout(p.Control.Ctx(), p.config.CloseTimeout))
+	w := newWorker(supervisor.NewControlTimeout(p.control.Ctx(), p.config.CloseTimeout))
 	err = w.Open()
 	if err != nil {
 		return

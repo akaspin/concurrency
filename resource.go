@@ -17,41 +17,33 @@ type Resource interface {
 	io.Closer
 }
 
-type ResourceFactory func() (Resource, error)
+type Factory func() (Resource, error)
 
 type resourceWrapper struct {
 	resource Resource
 	timeUsed time.Time
 }
 
-type ResourcePoolConfig struct {
-	Capacity int
-	Factory ResourceFactory
-
-	IdleTimeout time.Duration
-	CloseTimeout time.Duration
-
-}
 
 type ResourcePool struct {
-	*supervisor.Control
+	control     *supervisor.Control
 	resourcesCh chan resourceWrapper
-	config ResourcePoolConfig
+	config      Config
+	factory     Factory
 }
 
-func NewResourcePool(
-	ctx context.Context,
-	config ResourcePoolConfig) (p *ResourcePool) {
+func NewResourcePool(ctx context.Context, config Config, factory Factory) (p *ResourcePool) {
 	p = &ResourcePool{
-		Control: supervisor.NewControl(ctx),
+		control: supervisor.NewControl(ctx),
 		resourcesCh: make(chan resourceWrapper, config.Capacity),
 		config: config,
+		factory: factory,
 	}
 	return
 }
 
 func (p *ResourcePool) Open() (err error) {
-	if err = p.Control.Open(); err != nil {
+	if err = p.control.Open(); err != nil {
 		return
 	}
 	for i := 0; i < p.config.Capacity; i++ {
@@ -61,9 +53,9 @@ func (p *ResourcePool) Open() (err error) {
 }
 
 func (p *ResourcePool) Close() (err error) {
-	p.Acquire()
-	defer p.Release()
-	p.Control.Close()
+	p.control.Acquire()
+	defer p.control.Release()
+	p.control.Close()
 
 	LOOP:
 	for {
@@ -79,9 +71,14 @@ func (p *ResourcePool) Close() (err error) {
 	return
 }
 
+func (p *ResourcePool) Wait() (err error) {
+	err = p.control.Wait()
+	return
+}
+
 func (p *ResourcePool) Get(ctx context.Context) (r Resource, err error) {
 	select {
-	case <-p.Control.Ctx().Done():
+	case <-p.control.Ctx().Done():
 		err = PoolClosedError
 		return
 	case <-ctx.Done():
@@ -93,7 +90,7 @@ func (p *ResourcePool) Get(ctx context.Context) (r Resource, err error) {
 	var ok bool
 	select {
 	case wrapper, ok = <-p.resourcesCh:
-	case <-p.Control.Ctx().Done():
+	case <-p.control.Ctx().Done():
 		err = PoolClosedError
 		return
 	case <-ctx.Done():
@@ -110,24 +107,24 @@ func (p *ResourcePool) Get(ctx context.Context) (r Resource, err error) {
 		wrapper.resource = nil
 	}
 	if wrapper.resource == nil {
-		wrapper.resource, err = p.config.Factory()
+		wrapper.resource, err = p.factory()
 		if err != nil {
 			p.resourcesCh<- resourceWrapper{}
 			return
 		}
 	}
 	r = wrapper.resource
-	p.Acquire()
+	p.control.Acquire()
 	return
 }
 
 func (p *ResourcePool) Put(r Resource) (err error) {
 	select {
-	case <-p.Control.Ctx().Done():
+	case <-p.control.Ctx().Done():
 		if r != nil {
 			r.Close()
 		}
-		p.Release()
+		p.control.Release()
 		return
 	default:
 	}
@@ -141,7 +138,7 @@ func (p *ResourcePool) Put(r Resource) (err error) {
 	}
 	select {
 	case p.resourcesCh<- wrapper:
-		p.Release()
+		p.control.Release()
 	default:
 		err = PoolIsFullError
 	}

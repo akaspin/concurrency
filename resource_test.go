@@ -1,13 +1,13 @@
 package concurrency_test
 
 import (
-	"testing"
-	"github.com/akaspin/concurrency"
 	"context"
-	"sync/atomic"
+	"github.com/akaspin/concurrency"
 	"github.com/stretchr/testify/assert"
-	"time"
 	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
 )
 
 type nopCloser struct {
@@ -25,15 +25,17 @@ func TestNewResourcePool(t *testing.T) {
 		Close func() (err error)
 	}
 
-	p := concurrency.NewResourcePool(context.TODO(), concurrency.ResourcePoolConfig{
-		Capacity: 16,
-		CloseTimeout: time.Millisecond * 100,
-		Factory: func() (r concurrency.Resource, err error) {
+	p := concurrency.NewResourcePool(
+		context.TODO(),
+		concurrency.Config{
+			Capacity:     16,
+			CloseTimeout: time.Millisecond * 100,
+		},
+		func() (r concurrency.Resource, err error) {
 			r = &nopCloser{&closeCount}
 			atomic.AddInt64(&factoryCount, 1)
 			return
-		},
-	})
+		})
 	p.Open()
 
 	wg := &sync.WaitGroup{}
