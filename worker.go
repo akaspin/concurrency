@@ -25,6 +25,7 @@ func newWorker(control *supervisor.Control) (w *Worker) {
 
 func (w *Worker) Open() (err error) {
 	w.Control.Open()
+	w.Acquire()
 	go w.loop()
 	return
 }
@@ -41,7 +42,6 @@ func (w *Worker) Execute(ctx context.Context, fn func()) {
 }
 
 func (w *Worker) loop() {
-	w.Acquire()
 	defer w.Release()
 	LOOP:
 	for {

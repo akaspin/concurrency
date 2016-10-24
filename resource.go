@@ -53,10 +53,6 @@ func (p *ResourcePool) Open() (err error) {
 }
 
 func (p *ResourcePool) Close() (err error) {
-	p.control.Acquire()
-	defer p.control.Release()
-	p.control.Close()
-
 	LOOP:
 	for {
 		select {
@@ -68,6 +64,7 @@ func (p *ResourcePool) Close() (err error) {
 			break LOOP
 		}
 	}
+	p.control.Close()
 	return
 }
 
@@ -114,7 +111,6 @@ func (p *ResourcePool) Get(ctx context.Context) (r Resource, err error) {
 		}
 	}
 	r = wrapper.resource
-	p.control.Acquire()
 	return
 }
 
@@ -124,7 +120,6 @@ func (p *ResourcePool) Put(r Resource) (err error) {
 		if r != nil {
 			r.Close()
 		}
-		p.control.Release()
 		return
 	default:
 	}
@@ -138,7 +133,6 @@ func (p *ResourcePool) Put(r Resource) (err error) {
 	}
 	select {
 	case p.resourcesCh<- wrapper:
-		p.control.Release()
 	default:
 		err = PoolIsFullError
 	}
