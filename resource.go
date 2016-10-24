@@ -79,7 +79,7 @@ func (p *ResourcePool) Get(ctx context.Context) (r Resource, err error) {
 		err = PoolClosedError
 		return
 	case <-ctx.Done():
-		err = context.Canceled
+		err = ctx.Err()
 	default:
 	}
 
@@ -94,7 +94,7 @@ func (p *ResourcePool) Get(ctx context.Context) (r Resource, err error) {
 		err = context.Canceled
 	}
 	if !ok {
-		err = PoolClosedError
+		err = ctx.Err()
 		return
 	}
 
@@ -120,6 +120,7 @@ func (p *ResourcePool) Put(r Resource) (err error) {
 		if r != nil {
 			r.Close()
 		}
+		err = PoolClosedError
 		return
 	default:
 	}
