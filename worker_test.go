@@ -1,15 +1,14 @@
 package concurrency_test
 
 import (
-	"testing"
-	"sync/atomic"
-	"github.com/akaspin/concurrency"
 	"context"
-	"time"
+	"github.com/akaspin/concurrency"
 	"github.com/stretchr/testify/assert"
 	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
 )
-
 
 func TestNewWorkerPool(t *testing.T) {
 	var count int64
@@ -20,7 +19,7 @@ func TestNewWorkerPool(t *testing.T) {
 
 	p := concurrency.NewWorkerPool(context.TODO(), concurrency.Config{
 		CloseTimeout: time.Millisecond * 200,
-		Capacity: 16,
+		Capacity:     16,
 	})
 	err := p.Open()
 	assert.NoError(t, err)
@@ -28,20 +27,18 @@ func TestNewWorkerPool(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
-		err = p.Execute(context.TODO(), func() {
+		go p.Execute(context.TODO(), func() {
 			defer wg.Done()
 			fn()
 		})
 	}
-
+	wg.Wait()
 
 	err = p.Close()
 	assert.NoError(t, err)
 
 	err = p.Wait()
 	assert.NoError(t, err)
-
-	wg.Wait()
 
 	assert.EqualValues(t, 100, count)
 
@@ -76,7 +73,6 @@ func TestWorkerPool_Wait(t *testing.T) {
 
 	err = p.Wait()
 	assert.NoError(t, err)
-
 
 	assert.True(t, count < 100)
 	assert.True(t, count > 15)
